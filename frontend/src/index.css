@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+
+@keyframes glowPulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 5px #71717a) drop-shadow(0 0 10px #111111);
+  }
+  50% {
+    filter: drop-shadow(0 0 15px #71717a) drop-shadow(0 0 25px #111111);
+  }
+}
+
+.glow-icon {
+  animation: glowPulse 2s infinite ease-in-out;
+  display: inline-block;
+}
