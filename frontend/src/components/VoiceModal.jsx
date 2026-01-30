@@ -27,39 +27,52 @@ function VoiceModal() {
 
   }
 
+
   const sendMessageToLlm = async (prompt) => {
-    const response = await axios.post(`${baseUrl}/chat`, { prompt })
-    const data = response.data.response
-    console.log(data)
-    if (data) {
-      try {
-        // try parsing as JSON
-        const cmd = JSON.parse(data);
-        console.log(cmd)
-        executeCommand(cmd);
-      } catch (err) {
-        // fallback: normal text → speak
-        speech(data);
-      }
-    }
+  const response = await axios.post(`${baseUrl}/chat`, { prompt });
+  const data = response.data;
+
+  console.log(data);
+
+  // If backend returned action
+  if (data.action) {
+    executeCommand(data);
+    return;
   }
 
-  function executeCommand(cmd) {
-    speech(cmd.response)
-    switch (cmd.action) {
-      case "open_youtube":
-        window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(cmd.query)}`, "_blank");
-        break;
-      case "google_search":
-        window.open(`https://www.google.com/search?q=${encodeURIComponent(cmd.query)}`, "_blank");
-        break;
-      case "navigate":
-        window.open(cmd.url, "_blank");
-        break;
-      default:
-        console.log("Unknown command:", cmd);
-    }
+  // Normal speech
+  if (data.response) {
+    speech(data.response);
   }
+};
+
+
+  function executeCommand(cmd) {
+  if (cmd.response) speech(cmd.response);
+
+  switch (cmd.action) {
+    case "play_youtube":
+      // Open silently in background + autoplay
+      window.open(cmd.url, "_blank", "noopener,noreferrer");
+      break;
+
+    case "google_search":
+      window.open(
+        `https://www.google.com/search?q=${encodeURIComponent(cmd.query)}`,
+        "_blank",
+        "noopener,noreferrer"
+      );
+      break;
+
+    case "navigate":
+      window.open(cmd.url, "_blank", "noopener,noreferrer");
+      break;
+
+    default:
+      console.log("Unknown command:", cmd);
+  }
+}
+
 
   function startRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;

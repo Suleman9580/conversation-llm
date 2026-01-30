@@ -1,50 +1,45 @@
-import dotenv from 'dotenv'
-dotenv.config()
-import express from 'express'
-import cors from 'cors'
-import { WebSocketServer } from "ws";
-import WebSocket from "ws";
-import fetch from "node-fetch";
-import OpenAI from 'openai'
+import dotenv from "dotenv";
+dotenv.config();
+
+import express from "express";
+import cors from "cors";
 import Groq from "groq-sdk";
+import yts from "yt-search";
 
+const model = process.env.OPEN_ROUTER_MODEL;
+const groqModel = process.env.GROQ_MODEL;
+const port = process.env.PORT || 3000;
 
-const model = process.env.OPEN_ROUTER_MODEL
-const groqModel = process.env.GROQ_MODEL
-const port = process.env.PORT || 3000
+const app = express();
+app.use(express.json());
+app.use(cors());
 
-
-const app = express()
-app.use(express.json())
-app.use(cors())
-
-
-
-//Groq Config
+// Groq Config
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-app.post('/chat', async (req, res) => {
-  const { prompt } = req.body
-  
+app.post("/chat", async (req, res) => {
+  const { prompt } = req.body;
+
   const response = await groq.chat.completions.create({
     model: groqModel,
     messages: [
       {
         role: "system",
-        // content: "You are a knowledgeable and friendly AI assistant named Alex made by Mohammad Suleman. Your role is to help users by answering their questions in a warm and professional tone. answer the questions in very short and precise words, like only to the point"
         content: `
-You are a knowledgeable and friendly AI assistant named Alex. 
-you are an speech model so act like it, so phrase your answer in a way that it sounds like more human.
-Your job is to either answer in short text OR, if the user asks you to do a browser action 
-(like open YouTube, Google search, navigate, etc.), 
-respond ONLY in strict JSON object like this:
+You are Alex, a speech AI assistant.
 
-{"action": "open_youtube", "response": "playing despacito in youtube", "query": "despacito song"}
-{"action": "open_youtube", "response": "playing javascript tutorial", "query": "javascript tutorial"}
-{"action": "google_search", "response": "opening todays ai news ","query": "AI news today"}
-{"action": "navigate", "response": "navigating to example.com", "url": "https://example.com"}
+If user asks to play a song or music, respond ONLY in JSON:
 
-Never mix JSON with normal text.
+{"action":"play_youtube","query":"song name"}
+
+Other browser actions:
+
+{"action":"google_search","query":"AI news today"}
+{"action":"navigate","url":"https://example.com"}
+
+Otherwise reply with short normal text.
+
+Never mix JSON and text.
 `
       },
       {
@@ -54,18 +49,37 @@ Never mix JSON with normal text.
     ]
   });
 
+  const message = response.choices[0]?.message?.content?.trim() || "";
 
-  const data = response.choices[0]?.message?.content || ""
+  // Handle JSON actions
+  if (message.startsWith("{")) {
+    const data = JSON.parse(message);
 
-  res.status(200).json({ response: data })
-  return
-})
+    // YouTube playback
+    if (data.action === "play_youtube") {
+      const result = await yts(data.query);
 
+      if (!result.videos.length) {
+        return res.json({ error: "No video found" });
+      }
 
+      const video = result.videos[0];
 
+      return res.json({
+        action: "play_youtube",
+        url: `https://www.youtube.com/watch?v=${video.videoId}&autoplay=1`,
+        response: `Playing ${video.title}`
+      });
+    }
+
+    // Other actions pass through
+    return res.json(data);
+  }
+
+  // Normal text reply
+  res.json({ response: message });
+});
 
 const server = app.listen(port, () =>
   console.log(`Server running at http://localhost:${port}`)
 );
-
-
